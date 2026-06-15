@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360">
+  <defs>
+    <!-- Glow filter for shield -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Teal glow -->
+    <filter id="tealGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Arrow marker -->
+    <marker id="arrow1" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 11 6 L 0 11 Z" fill="#00C8D4"/>
+    </marker>
+    <!-- Gradient for shield -->
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0F2040"/>
+      <stop offset="100%" style="stop-color:#0A1628"/>
+    </linearGradient>
+    <!-- Subtle background gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0A1628"/>
+      <stop offset="100%" style="stop-color:#060E1A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ═══ BACKGROUND ═══ -->
+  <rect width="1200" height="360" fill="url(#bgGrad)" rx="12"/>
+  <!-- Subtle circuit grid lines -->
+  <line x1="0" y1="120" x2="1200" y2="120" stroke="#00C8D4" stroke-width="0.3" opacity="0.06"/>
+  <line x1="0" y1="240" x2="1200" y2="240" stroke="#00C8D4" stroke-width="0.3" opacity="0.06"/>
+  <line x1="300" y1="0" x2="300" y2="360" stroke="#00C8D4" stroke-width="0.3" opacity="0.04"/>
+  <line x1="600" y1="0" x2="600" y2="360" stroke="#00C8D4" stroke-width="0.3" opacity="0.04"/>
+  <line x1="900" y1="0" x2="900" y2="360" stroke="#00C8D4" stroke-width="0.3" opacity="0.04"/>
+
+  <!-- ═══ SHIELD ICON (centered at x=160, y=180) ═══ -->
+  <!-- Shield outer glow -->
+  <path d="M 68 28 L 248 28 Q 268 28 268 48 L 268 178 Q 268 248 160 298 Q 52 248 52 178 L 52 48 Q 52 28 68 28 Z"
+        fill="none" stroke="#00C8D4" stroke-width="3" opacity="0.15" filter="url(#tealGlow)"/>
+  <!-- Shield body -->
+  <path d="M 68 28 L 248 28 Q 268 28 268 48 L 268 178 Q 268 248 160 298 Q 52 248 52 178 L 52 48 Q 52 28 68 28 Z"
+        fill="url(#shieldGrad)"/>
+  <!-- Shield border -->
+  <path d="M 68 28 L 248 28 Q 268 28 268 48 L 268 178 Q 268 248 160 298 Q 52 248 52 178 L 52 48 Q 52 28 68 28 Z"
+        fill="none" stroke="#00C8D4" stroke-width="2.5" opacity="0.6"/>
+
+  <!-- Internal circuit dots (decorative) -->
+  <line x1="95" y1="72" x2="225" y2="72" stroke="#00C8D4" stroke-width="1" opacity="0.15"/>
+  <circle cx="88" cy="72" r="4" fill="#00C8D4" opacity="0.2"/>
+  <circle cx="232" cy="72" r="4" fill="#00C8D4" opacity="0.2"/>
+  <line x1="80" y1="95" x2="240" y2="95" stroke="#00C8D4" stroke-width="0.5" opacity="0.08"/>
+
+  <!-- ═══ SYNC ARROWS ICON (center: 160, 185) r=54 ═══ -->
+  <!-- Arc 1: upper-right to left -->
+  <path d="M 198 142 A 54 54 0 0 0 108 192"
+        stroke="#00C8D4" stroke-width="9" fill="none" stroke-linecap="round"
+        marker-end="url(#arrow1)" filter="url(#tealGlow)"/>
+  <!-- Arc 2: lower-left to right -->
+  <path d="M 122 228 A 54 54 0 0 0 212 178"
+        stroke="#00C8D4" stroke-width="9" fill="none" stroke-linecap="round"
+        marker-end="url(#arrow1)" filter="url(#tealGlow)"/>
+  <!-- Center dot -->
+  <circle cx="160" cy="185" r="8" fill="#00C8D4" opacity="0.8" filter="url(#tealGlow)"/>
+  <circle cx="160" cy="185" r="4" fill="#00C8D4"/>
+
+  <!-- ═══ WORDMARK ═══ -->
+  <!-- SYNC — Ice White -->
+  <text x="320" y="178"
+        font-family="Arial Black, Impact, sans-serif"
+        font-weight="900" font-size="112"
+        fill="#E8F4FF" letter-spacing="-2">SYNC</text>
+  <!-- SHIELD — Electric Teal -->
+  <text x="660" y="178"
+        font-family="Arial Black, Impact, sans-serif"
+        font-weight="900" font-size="112"
+        fill="#00C8D4" letter-spacing="-2">SHIELD</text>
+
+  <!-- Vertical divider between SYNC and SHIELD -->
+  <rect x="648" y="80" width="3" height="100" fill="#1E3A5C" rx="1"/>
+
+  <!-- ═══ TAGLINE ═══ -->
+  <text x="320" y="224"
+        font-family="Arial, Helvetica, sans-serif"
+        font-weight="300" font-size="24"
+        fill="#6B8CAE" letter-spacing="5">SYNC EVERY ASSET  ·  SHIELD EVERY OPERATION</text>
+
+  <!-- ═══ BADGES ═══ -->
+  <!-- CMMS PLATFORM badge -->
+  <rect x="320" y="248" width="230" height="36" rx="4" fill="#1E3A5C"/>
+  <rect x="320" y="248" width="5" height="36" rx="2" fill="#00C8D4"/>
+  <text x="450" y="273"
+        font-family="Arial, Helvetica, sans-serif"
+        font-weight="700" font-size="18"
+        fill="#00C8D4" text-anchor="middle" letter-spacing="2.5">CMMS PLATFORM</text>
+
+  <!-- ICT INDUSTRY badge -->
+  <rect x="562" y="248" width="192" height="36" rx="4" fill="#0F2040"/>
+  <rect x="562" y="248" width="5" height="36" rx="2" fill="#6B8CAE"/>
+  <text x="658" y="273"
+        font-family="Arial, Helvetica, sans-serif"
+        font-weight="600" font-size="18"
+        fill="#6B8CAE" text-anchor="middle" letter-spacing="2">ICT INDUSTRY</text>
+
+  <!-- ═══ Bottom accent line ═══ -->
+  <line x1="320" y1="306" x2="1160" y2="306" stroke="#1E3A5C" stroke-width="1" opacity="0.6"/>
+  <!-- Website -->
+  <text x="320" y="332"
+        font-family="Courier New, monospace"
+        font-size="20"
+        fill="#009BAA" letter-spacing="1.5">www.syncshield.io</text>
+  <!-- Version/tag -->
+  <text x="1160" y="332"
+        font-family="Courier New, monospace"
+        font-size="18"
+        fill="#1E3A5C" text-anchor="end" letter-spacing="1">v1.0.0</text>
+</svg>
