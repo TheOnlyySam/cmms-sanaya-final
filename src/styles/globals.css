@@ -2689,6 +2689,18 @@ input[type="date"].filter-input::-webkit-calendar-picker-indicator {
   padding: 12px;
 }
 
+.admin-company-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-company-main > div {
+  display: grid;
+  gap: 4px;
+}
+
 .admin-company-row span {
   color: var(--muted);
   font-size: 12px;
@@ -2722,6 +2734,49 @@ input[type="date"].filter-input::-webkit-calendar-picker-indicator {
 
 .admin-table-toolbar .field {
   min-width: 240px;
+}
+
+.danger-confirmation {
+  display: grid;
+  gap: 12px;
+}
+
+.danger-confirmation-warning {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 11px;
+  align-items: start;
+  border: 1px solid rgba(200, 32, 58, 0.22);
+  border-radius: 8px;
+  background: rgba(200, 32, 58, 0.06);
+  padding: 12px;
+}
+
+.danger-confirmation-warning svg {
+  color: var(--red);
+}
+
+.danger-confirmation-warning div {
+  display: grid;
+  gap: 4px;
+}
+
+.danger-confirmation-warning span,
+.danger-confirmation-check span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.danger-confirmation-check {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 9px;
+  align-items: start;
+  font-weight: 750;
+}
+
+.danger-confirmation-check input {
+  margin-top: 2px;
 }
 
 @media (max-width: 920px) {
@@ -2763,5 +2818,10 @@ input[type="date"].filter-input::-webkit-calendar-picker-indicator {
 
   .admin-table-toolbar .field {
     min-width: 0;
+  }
+
+  .admin-company-main {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

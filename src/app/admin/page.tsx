@@ -1,12 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Building2, Filter, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, Building2, Filter, RefreshCw, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
 import { SelectField, TextField } from "@/components/ui/FormField";
+import { Modal } from "@/components/ui/Modal";
 import { PageShell } from "@/components/layout/PageShell";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -54,9 +55,12 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [creatingCompany, setCreatingCompany] = useState(false);
+  const [deletingCompany, setDeletingCompany] = useState(false);
   const [form, setForm] = useState({ displayName: "", email: "", password: "", companyId: "", roleId: "" });
   const [companyForm, setCompanyForm] = useState({ companyName: "", companyType: "" });
   const [companyFilter, setCompanyFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<CompanyRow | null>(null);
+  const [deleteForm, setDeleteForm] = useState({ companyName: "", subdomain: "", phrase: "", acknowledged: false });
 
   const roleById = useMemo(() => new Map(roles.map((role) => [role.id, role.name])), [roles]);
   const companyById = useMemo(() => new Map(companies.map((company) => [company.id, company.company_name])), [companies]);
@@ -65,6 +69,14 @@ export default function AdminPage() {
     if (companyFilter === "none") return users.filter((user) => !user.company_id);
     return users.filter((user) => user.company_id === companyFilter);
   }, [companyFilter, users]);
+  const deletePhrase = deleteTarget ? `DELETE ${deleteTarget.company_name}` : "";
+  const canDeleteCompany = Boolean(
+    deleteTarget &&
+      deleteForm.companyName.trim() === deleteTarget.company_name &&
+      deleteForm.subdomain.trim() === (deleteTarget.company_subdomain ?? "") &&
+      deleteForm.phrase.trim() === deletePhrase &&
+      deleteForm.acknowledged
+  );
 
   async function loadAdminData() {
     setLoading(true);
@@ -88,11 +100,19 @@ export default function AdminPage() {
         teamMembers: teamMembersResult.count ?? 0
       });
 
-      setForm((current) => ({
-        ...current,
-        companyId: current.companyId || companiesResult.data?.[0]?.id || "",
-        roleId: current.roleId || rolesResult.data?.find((role: RoleRow) => role.name === "Engineer")?.id || rolesResult.data?.[0]?.id || ""
-      }));
+      setForm((current) => {
+        const companyStillExists = companiesResult.data?.some((company: CompanyRow) => company.id === current.companyId);
+        return {
+          ...current,
+          companyId: companyStillExists ? current.companyId : companiesResult.data?.[0]?.id || "",
+          roleId: current.roleId || rolesResult.data?.find((role: RoleRow) => role.name === "Engineer")?.id || rolesResult.data?.[0]?.id || ""
+        };
+      });
+
+      setCompanyFilter((current) => {
+        if (current === "all" || current === "none") return current;
+        return companiesResult.data?.some((company: CompanyRow) => company.id === current) ? current : "all";
+      });
     }
     setLoading(false);
   }
@@ -151,6 +171,50 @@ export default function AdminPage() {
     setCompanyForm({ companyName: "", companyType: "" });
     await loadAdminData();
     setCreatingCompany(false);
+  }
+
+  function openDeleteCompany(company: CompanyRow) {
+    setDeleteTarget(company);
+    setDeleteForm({ companyName: "", subdomain: "", phrase: "", acknowledged: false });
+  }
+
+  function closeDeleteCompany() {
+    if (deletingCompany) return;
+    setDeleteTarget(null);
+    setDeleteForm({ companyName: "", subdomain: "", phrase: "", acknowledged: false });
+  }
+
+  async function deleteCompany() {
+    if (!deleteTarget || !canDeleteCompany) return;
+    setDeletingCompany(true);
+
+    const response = await fetch("/api/admin/companies", {
+      method: "DELETE",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${session?.access_token ?? ""}`
+      },
+      body: JSON.stringify({
+        companyId: deleteTarget.id,
+        confirmCompanyName: deleteForm.companyName,
+        confirmSubdomain: deleteForm.subdomain,
+        confirmPhrase: deleteForm.phrase
+      })
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      toast.error(result.message ?? "Could not delete company.");
+      setDeletingCompany(false);
+      return;
+    }
+
+    toast.success("Company deleted.");
+    if (companyFilter === deleteTarget.id) setCompanyFilter("all");
+    setDeleteTarget(null);
+    setDeleteForm({ companyName: "", subdomain: "", phrase: "", acknowledged: false });
+    await loadAdminData();
+    setDeletingCompany(false);
   }
 
   if (profile?.roleName !== "CMMS Admin") {
@@ -246,9 +310,16 @@ export default function AdminPage() {
           <div className="admin-company-list">
             {companies.map((company) => (
               <div className="admin-company-row" key={company.id}>
-                <strong>{company.company_name}</strong>
-                <span>{company.company_type || "CMMS company"}</span>
-                <code>{company.company_subdomain || "no-subdomain"}</code>
+                <div className="admin-company-main">
+                  <div>
+                    <strong>{company.company_name}</strong>
+                    <span>{company.company_type || "CMMS company"}</span>
+                    <code>{company.company_subdomain || "no-subdomain"}</code>
+                  </div>
+                  <Button variant="danger" size="sm" onClick={() => openDeleteCompany(company)} aria-label={`Delete ${company.company_name}`}>
+                    <Trash2 size={14} /> Delete
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -291,6 +362,42 @@ export default function AdminPage() {
           ]}
         />
       </Card>
+
+      <Modal
+        open={Boolean(deleteTarget)}
+        title="Delete Company"
+        subtitle="This will remove the tenant record and detach users from the company."
+        onClose={closeDeleteCompany}
+        footer={
+          <>
+            <Button variant="outline" onClick={closeDeleteCompany} disabled={deletingCompany}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={deleteCompany} disabled={!canDeleteCompany} loading={deletingCompany}>
+              <Trash2 size={15} /> Delete Company
+            </Button>
+          </>
+        }
+      >
+        {deleteTarget ? (
+          <div className="danger-confirmation">
+            <div className="danger-confirmation-warning">
+              <AlertTriangle size={19} />
+              <div>
+                <strong>{deleteTarget.company_name}</strong>
+                <span>Users assigned to this company will no longer belong to a tenant until you assign them again.</span>
+              </div>
+            </div>
+            <TextField label="Type the company name" value={deleteForm.companyName} onChange={(event) => setDeleteForm((current) => ({ ...current, companyName: event.target.value }))} placeholder={deleteTarget.company_name} />
+            <TextField label="Type the company subdomain" value={deleteForm.subdomain} onChange={(event) => setDeleteForm((current) => ({ ...current, subdomain: event.target.value }))} placeholder={deleteTarget.company_subdomain ?? ""} />
+            <TextField label={`Type ${deletePhrase}`} value={deleteForm.phrase} onChange={(event) => setDeleteForm((current) => ({ ...current, phrase: event.target.value }))} placeholder={deletePhrase} />
+            <label className="danger-confirmation-check">
+              <input type="checkbox" checked={deleteForm.acknowledged} onChange={(event) => setDeleteForm((current) => ({ ...current, acknowledged: event.target.checked }))} />
+              <span>I understand this removes the company tenant and may require reassigning affected users.</span>
+            </label>
+          </div>
+        ) : null}
+      </Modal>
     </PageShell>
   );
 }
