@@ -5,20 +5,49 @@ import { usePathname, useRouter } from "next/navigation";
 import { AppDataProvider } from "@/lib/data/AppDataContext";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { MainNav } from "@/components/layout/MainNav";
+import { useToast } from "@/components/ui/ToastProvider";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { loading, session, profile } = useAuth();
+  const toast = useToast();
   const isLogin = pathname === "/login";
+  const isHome = pathname === "/";
+  const isPublic = isLogin || isHome;
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isSettingsRoute = pathname.startsWith("/settings");
 
   useEffect(() => {
-    if (!loading && !session && !isLogin) router.replace("/login");
-    if (!loading && session && isLogin) router.replace("/dashboard");
-  }, [isLogin, loading, router, session]);
+    if (!loading && !session && !isPublic) router.replace("/login");
+    if (!loading && session && isLogin) router.replace(profile?.roleName === "CMMS Admin" ? "/admin" : "/dashboard");
+    if (!loading && session && profile && isAdminRoute && profile.roleName !== "CMMS Admin") router.replace("/dashboard");
+    if (!loading && session && profile && isSettingsRoute && profile.roleName !== "Project Manager") {
+      router.replace(profile.roleName === "CMMS Admin" ? "/admin" : "/dashboard");
+    }
+  }, [isAdminRoute, isLogin, isPublic, isSettingsRoute, loading, profile, router, session]);
 
-  if (isLogin) return <>{children}</>;
+  useEffect(() => {
+    function handleRejection(event: PromiseRejectionEvent) {
+      console.error(event.reason);
+      toast.error("A database request failed. Please refresh and try again.");
+    }
+
+    function handleError(event: ErrorEvent) {
+      console.error(event.error ?? event.message);
+      toast.error("Something went wrong in the app. Please try again.");
+    }
+
+    window.addEventListener("unhandledrejection", handleRejection);
+    window.addEventListener("error", handleError);
+    return () => {
+      window.removeEventListener("unhandledrejection", handleRejection);
+      window.removeEventListener("error", handleError);
+    };
+  }, [toast]);
+
+  if (isPublic) return <>{children}</>;
 
   if (loading) {
     return (

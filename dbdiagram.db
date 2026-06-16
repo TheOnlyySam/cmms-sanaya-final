@@ -99,6 +99,7 @@ Enum notification_priority {
 Table company_settings {
   id varchar [pk, note: "Single active company/settings row"]
   company_name varchar [not null]
+  company_subdomain varchar [unique, note: "Generated from company name for tenant login subdomains"]
   company_type varchar
   registration_number varchar
   tax_number varchar

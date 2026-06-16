@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ArrowDownUp } from "lucide-react";
 import { EmptyState } from "./EmptyState";
 
 export interface Column<T> {
@@ -11,6 +12,10 @@ export function DataTable<T>({ columns, data, emptyTitle = "No records yet" }: {
   if (!data.length) return <EmptyState title={emptyTitle}>Create a record to populate this table.</EmptyState>;
   return (
     <div className="table-wrap">
+      <div className="table-meta">
+        <span>{data.length} record{data.length === 1 ? "" : "s"}</span>
+        <span><ArrowDownUp size={14} /> Scroll to review all columns</span>
+      </div>
       <table className="data-table">
         <thead>
           <tr>

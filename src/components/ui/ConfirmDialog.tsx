@@ -1,5 +1,8 @@
+"use client";
+
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "./Button";
-import { Modal } from "./Modal";
 
 export function ConfirmDialog({
   open,
@@ -17,22 +20,33 @@ export function ConfirmDialog({
   onConfirm: () => void;
 }) {
   return (
-    <Modal
-      open={open}
-      title={title}
-      onClose={onCancel}
-      footer={
-        <>
-          <Button variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={onConfirm}>
-            {confirmLabel}
-          </Button>
-        </>
-      }
-    >
-      <p className="confirm-copy">{message}</p>
-    </Modal>
+    <AlertDialog.Root open={open} onOpenChange={(nextOpen) => !nextOpen && onCancel()}>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="modal-backdrop" />
+        <AlertDialog.Content className="modal confirm-modal">
+          <header className="confirm-header">
+            <div className="confirm-icon">
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <AlertDialog.Title className="modal-title">{title}</AlertDialog.Title>
+              <AlertDialog.Description className="confirm-copy">{message}</AlertDialog.Description>
+            </div>
+          </header>
+          <footer className="modal-footer">
+            <AlertDialog.Cancel asChild>
+              <Button variant="outline" onClick={onCancel}>
+                Cancel
+              </Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action asChild>
+              <Button variant="danger" onClick={onConfirm}>
+                {confirmLabel}
+              </Button>
+            </AlertDialog.Action>
+          </footer>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   );
 }

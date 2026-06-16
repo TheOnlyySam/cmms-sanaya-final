@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { getCurrentTenantSubdomain } from "@/lib/tenancy";
 import type { Id } from "@/lib/types";
 
 interface AppUserProfile {
@@ -12,6 +13,8 @@ interface AppUserProfile {
   displayName: string;
   roleId: Id;
   roleName: string;
+  companyId: Id | null;
+  companySubdomain: string | null;
   teamMemberId: Id | null;
   status: string;
 }
@@ -21,7 +24,7 @@ interface AuthContextValue {
   session: Session | null;
   user: User | null;
   profile: AppUserProfile | null;
-  signIn: (email: string, password: string) => Promise<{ ok: boolean; message?: string }>;
+  signIn: (email: string, password: string) => Promise<{ ok: boolean; message?: string; profile?: AppUserProfile | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -32,7 +35,7 @@ async function loadProfile(userId: Id): Promise<AppUserProfile | null> {
   const supabase = createBrowserSupabaseClient() as any;
   const { data, error } = await supabase
     .from("users")
-    .select("id,email,display_name,role_id,team_member_id,status,roles(name)")
+    .select("id,email,display_name,role_id,company_id,team_member_id,status,roles(name),company_settings(company_subdomain)")
     .eq("id", userId)
     .maybeSingle();
 
@@ -43,6 +46,7 @@ async function loadProfile(userId: Id): Promise<AppUserProfile | null> {
 
   if (!data) return null;
   const role = Array.isArray(data.roles) ? data.roles[0] : data.roles;
+  const company = Array.isArray(data.company_settings) ? data.company_settings[0] : data.company_settings;
 
   return {
     id: data.id,
@@ -50,6 +54,8 @@ async function loadProfile(userId: Id): Promise<AppUserProfile | null> {
     displayName: data.display_name ?? data.email,
     roleId: data.role_id,
     roleName: role?.name ?? "",
+    companyId: data.company_id ?? null,
+    companySubdomain: company?.company_subdomain ?? null,
     teamMemberId: data.team_member_id,
     status: data.status
   };
@@ -66,7 +72,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       return;
     }
-    setProfile(await loadProfile(nextSession.user.id));
+    const nextProfile = await loadProfile(nextSession.user.id);
+    const tenantSubdomain = getCurrentTenantSubdomain();
+    if (tenantSubdomain && nextProfile?.companySubdomain !== tenantSubdomain) {
+      await supabase.auth.signOut();
+      setSession(null);
+      setProfile(null);
+      return;
+    }
+    setProfile(nextProfile);
   }
 
   useEffect(() => {
@@ -100,8 +114,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) return { ok: false, message: error.message };
 
       setSession(data.session);
-      await refreshProfileForSession(data.session);
-      return { ok: true };
+      const nextProfile = data.session?.user ? await loadProfile(data.session.user.id) : null;
+      const tenantSubdomain = getCurrentTenantSubdomain();
+      if (tenantSubdomain && nextProfile?.companySubdomain !== tenantSubdomain) {
+        await supabase.auth.signOut();
+        setSession(null);
+        setProfile(null);
+        return { ok: false, message: "This account does not belong to this company subdomain." };
+      }
+      setProfile(nextProfile);
+      return { ok: true, profile: nextProfile };
     },
     signOut: async () => {
       await supabase.auth.signOut();

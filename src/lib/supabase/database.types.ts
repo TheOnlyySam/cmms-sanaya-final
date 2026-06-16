@@ -12,6 +12,7 @@ export type Database = {
         Row: {
           id: string;
           role_id: string;
+          company_id: string | null;
           team_member_id: string | null;
           email: string;
           password_hash: string | null;
@@ -24,6 +25,7 @@ export type Database = {
         Insert: {
           id?: string;
           role_id: string;
+          company_id?: string | null;
           team_member_id?: string | null;
           email: string;
           password_hash?: string | null;
@@ -34,6 +36,37 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
+      };
+      company_settings: {
+        Row: {
+          id: string;
+          company_name: string;
+          company_subdomain: string | null;
+          company_type: string | null;
+          registration_number: string | null;
+          tax_number: string | null;
+          address: string | null;
+          phone: string | null;
+          email: string | null;
+          report_footer: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_name: string;
+          company_subdomain?: string | null;
+          company_type?: string | null;
+          registration_number?: string | null;
+          tax_number?: string | null;
+          address?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          report_footer?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["company_settings"]["Insert"]>;
       };
       team_members: {
         Row: {

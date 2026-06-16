@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DataTable } from "@/components/ui/DataTable";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/FormField";
 import { Modal } from "@/components/ui/Modal";
 import { PageShell } from "@/components/layout/PageShell";
@@ -171,22 +172,8 @@ export default function WorkOrdersPage() {
           </div>
           <div className="filters">
             <input className="filter-input" placeholder="Search work orders..." value={query} onChange={(event) => setQuery(event.target.value)} />
-            <select className="filter-input" value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}>
-              <option value="all">All projects</option>
-              {state.projects.map((project) => (
-                <option value={project.id} key={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-            <select className="filter-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="all">All statuses</option>
-              {statuses.map((status) => (
-                <option value={status} key={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
+            <FilterSelect value={projectFilter} onChange={setProjectFilter} options={[{ value: "all", label: "All projects" }, ...state.projects.map((project) => ({ value: project.id, label: project.name }))]} />
+            <FilterSelect value={statusFilter} onChange={setStatusFilter} options={[{ value: "all", label: "All statuses" }, ...statuses.map((status) => ({ value: status, label: status }))]} />
           </div>
         </div>
       </Card>

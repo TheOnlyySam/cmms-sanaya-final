@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { AlertCircle, CheckCircle2, Info, XCircle } from "lucide-react";
 import { uid } from "@/lib/utils";
 
 type ToastTone = "success" | "error" | "info" | "warning";
@@ -48,12 +49,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="toast-region" role="status" aria-live="polite" aria-relevant="additions">
         {toasts.map((toast) => (
           <div className={`toast toast-${toast.tone}`} key={toast.id}>
+            <ToastIcon tone={toast.tone} />
             {toast.message}
           </div>
         ))}
       </div>
     </ToastContext.Provider>
   );
+}
+
+function ToastIcon({ tone }: { tone: ToastTone }) {
+  if (tone === "success") return <CheckCircle2 size={18} />;
+  if (tone === "error") return <XCircle size={18} />;
+  if (tone === "warning") return <AlertCircle size={18} />;
+  return <Info size={18} />;
 }
 
 export function useToast() {

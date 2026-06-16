@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DataTable } from "@/components/ui/DataTable";
+import { FilterSelect } from "@/components/ui/FilterSelect";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/FormField";
 import { PageShell } from "@/components/layout/PageShell";
 import {
@@ -189,6 +190,7 @@ function ReportsSummary({
 }) {
   const { state, removeReport } = useAppData();
   const setFilter = (key: string, value: string) => setFilters({ ...filters, [key]: value });
+
   return (
     <>
       <div className="kpi-grid" style={{ marginTop: 14 }}>
@@ -202,29 +204,18 @@ function ReportsSummary({
           <input className="filter-input" placeholder="Search any work order/report field..." value={filters.search} onChange={(event) => setFilter("search", event.target.value)} />
           <input className="filter-input" placeholder="Work Order Reference" value={filters.workOrderRef} onChange={(event) => setFilter("workOrderRef", event.target.value)} />
           <input className="filter-input" placeholder="Report Reference" value={filters.reportRef} onChange={(event) => setFilter("reportRef", event.target.value)} />
-          <select className="filter-input" value={filters.clientId} onChange={(event) => setFilter("clientId", event.target.value)}>
-            <option value="all">All clients</option>
-            {state.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
-          </select>
-          <select className="filter-input" value={filters.projectId} onChange={(event) => setFilter("projectId", event.target.value)}>
-            <option value="all">All projects</option>
-            {state.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-          </select>
-          <select className="filter-input" value={filters.siteId} onChange={(event) => setFilter("siteId", event.target.value)}><option value="all">All sites</option>{state.sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select>
-          <select className="filter-input" value={filters.assetId} onChange={(event) => setFilter("assetId", event.target.value)}><option value="all">All assets</option>{state.assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.assetName}</option>)}</select>
-          <select className="filter-input" value={filters.assignedMemberId} onChange={(event) => setFilter("assignedMemberId", event.target.value)}><option value="all">All assigned employees</option>{state.teamMembers.map((member) => <option key={member.id} value={member.id}>{member.fullName}</option>)}</select>
-          <select className="filter-input" value={filters.priority} onChange={(event) => setFilter("priority", event.target.value)}><option value="all">All priorities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
-          <select className="filter-input" value={filters.reportStatus} onChange={(event) => setFilter("reportStatus", event.target.value)}>
-            <option value="all">All report statuses</option>
-            <option>Draft</option>
-            <option>Submitted</option>
-            <option>Approved</option>
-          </select>
-          <select className="filter-input" value={filters.workOrderStatus} onChange={(event) => setFilter("workOrderStatus", event.target.value)}><option value="all">All WO statuses</option><option>Scheduled</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Cancelled</option></select>
-          <select className="filter-input" value={filters.domainId} onChange={(event) => setFilter("domainId", event.target.value)}><option value="all">All domains</option>{state.domains.map((domain) => <option key={domain.id} value={domain.id}>{domain.name}</option>)}</select>
-          <select className="filter-input" value={filters.templateId} onChange={(event) => setFilter("templateId", event.target.value)}><option value="all">All templates</option>{state.templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select>
-          <select className="filter-input" value={filters.activityTypeId} onChange={(event) => setFilter("activityTypeId", event.target.value)}><option value="all">All activity types</option>{state.activityTypes.map((activity) => <option key={activity.id} value={activity.id}>{activity.name}</option>)}</select>
-          <select className="filter-input" value={filters.reportType} onChange={(event) => setFilter("reportType", event.target.value)}><option value="all">All report types</option><option>CM</option><option>PM</option><option>Installation</option></select>
+          <FilterSelect value={filters.clientId} onChange={(value) => setFilter("clientId", value)} options={[{ value: "all", label: "All clients" }, ...state.clients.map((client) => ({ value: client.id, label: client.name }))]} />
+          <FilterSelect value={filters.projectId} onChange={(value) => setFilter("projectId", value)} options={[{ value: "all", label: "All projects" }, ...state.projects.map((project) => ({ value: project.id, label: project.name }))]} />
+          <FilterSelect value={filters.siteId} onChange={(value) => setFilter("siteId", value)} options={[{ value: "all", label: "All sites" }, ...state.sites.map((site) => ({ value: site.id, label: site.name }))]} />
+          <FilterSelect value={filters.assetId} onChange={(value) => setFilter("assetId", value)} options={[{ value: "all", label: "All assets" }, ...state.assets.map((asset) => ({ value: asset.id, label: asset.assetName }))]} />
+          <FilterSelect value={filters.assignedMemberId} onChange={(value) => setFilter("assignedMemberId", value)} options={[{ value: "all", label: "All assigned employees" }, ...state.teamMembers.map((member) => ({ value: member.id, label: member.fullName }))]} />
+          <FilterSelect value={filters.priority} onChange={(value) => setFilter("priority", value)} options={["all", "Critical", "High", "Medium", "Low"].map((value) => ({ value, label: value === "all" ? "All priorities" : value }))} />
+          <FilterSelect value={filters.reportStatus} onChange={(value) => setFilter("reportStatus", value)} options={["all", "Draft", "Submitted", "Approved"].map((value) => ({ value, label: value === "all" ? "All report statuses" : value }))} />
+          <FilterSelect value={filters.workOrderStatus} onChange={(value) => setFilter("workOrderStatus", value)} options={["all", "Scheduled", "In Progress", "On Hold", "Completed", "Cancelled"].map((value) => ({ value, label: value === "all" ? "All WO statuses" : value }))} />
+          <FilterSelect value={filters.domainId} onChange={(value) => setFilter("domainId", value)} options={[{ value: "all", label: "All domains" }, ...state.domains.map((domain) => ({ value: domain.id, label: domain.name }))]} />
+          <FilterSelect value={filters.templateId} onChange={(value) => setFilter("templateId", value)} options={[{ value: "all", label: "All templates" }, ...state.templates.map((template) => ({ value: template.id, label: template.name }))]} />
+          <FilterSelect value={filters.activityTypeId} onChange={(value) => setFilter("activityTypeId", value)} options={[{ value: "all", label: "All activity types" }, ...state.activityTypes.map((activity) => ({ value: activity.id, label: activity.name }))]} />
+          <FilterSelect value={filters.reportType} onChange={(value) => setFilter("reportType", value)} options={["all", "CM", "PM", "Installation"].map((value) => ({ value, label: value === "all" ? "All report types" : value }))} />
           <input className="filter-input" type="date" value={filters.dateFrom} onChange={(event) => setFilter("dateFrom", event.target.value)} />
           <input className="filter-input" type="date" value={filters.dateTo} onChange={(event) => setFilter("dateTo", event.target.value)} />
           <Button variant="outline" onClick={() => setFilters({ search: "", workOrderRef: "", reportRef: "", clientId: "all", projectId: "all", siteId: "all", assetId: "all", assignedMemberId: "all", priority: "all", reportStatus: "all", workOrderStatus: "all", domainId: "all", templateId: "all", activityTypeId: "all", reportType: "all", dateFrom: "", dateTo: "" })}>Clear Filters</Button>

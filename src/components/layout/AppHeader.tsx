@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
+import Link from "next/link";
 
 export function AppHeader() {
   const { profile, signOut } = useAuth();
@@ -32,6 +33,9 @@ export function AppHeader() {
           <strong>{profile?.displayName ?? "Signed in"}</strong>
           <span>{profile?.roleName ?? "CMMS User"}</span>
         </div>
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/">Home</Link>
+        </Button>
         <Button variant="ghost" size="sm" onClick={() => void signOut()}>
           Sign Out
         </Button>
