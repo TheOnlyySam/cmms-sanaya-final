@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { canManageSettingsForMember, resolveCurrentMember } from "@/lib/access-control";
 import { useAppData } from "@/lib/data/AppDataContext";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: "▦" },
@@ -15,9 +17,14 @@ const items = [
 export function MainNav() {
   const pathname = usePathname();
   const { state } = useAppData();
+  const { profile } = useAuth();
+  const currentMember = resolveCurrentMember(state, profile?.teamMemberId);
+  const canSeeSettings = profile ? ["CMMS Admin", "Project Manager"].includes(profile.roleName) : canManageSettingsForMember(state, currentMember);
+  const visibleItems = items.filter((item) => item.href !== "/settings" || canSeeSettings);
+
   return (
     <nav className="main-nav">
-      {items.map((item) => {
+      {visibleItems.map((item) => {
         const active = pathname === item.href || (pathname === "/" && item.href === "/dashboard");
         return (
           <Link className={`nav-link ${active ? "active" : ""}`} href={item.href} key={item.href}>

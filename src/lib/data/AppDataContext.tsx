@@ -4,6 +4,28 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { initialState } from "@/lib/data/seed";
 import { nextSequence, referenceForReport } from "@/lib/sequences";
+import {
+  deleteRow,
+  isSupabaseConfigured,
+  loadCmmsStateFromSupabase,
+  newId,
+  persistAsset,
+  persistClient,
+  persistCompany,
+  persistIndustry,
+  persistNamed,
+  persistPMSections,
+  persistPMSchedule,
+  persistProject,
+  persistReport,
+  persistRole,
+  persistSequence,
+  persistSite,
+  persistTeamMember,
+  persistTemplate,
+  persistWorkOrder,
+  persistWorkOrderStatus
+} from "@/lib/supabase/cmms";
 import type {
   Asset,
   AssetType,
@@ -79,40 +101,82 @@ function cloneTasks(tasks: ChecklistTask[] = []) {
 }
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<CmmsState>(initialState);
+  const [state, setRawState] = useState<CmmsState>(initialState);
 
-  useEffect(() => setState(loadState()), []);
+  const makeId = (prefix: string) => (isSupabaseConfigured() ? newId() : uid(prefix));
 
   useEffect(() => {
+    let mounted = true;
+    async function load() {
+      if (!isSupabaseConfigured()) {
+        setRawState(loadState());
+        return;
+      }
+      try {
+        const remoteState = await loadCmmsStateFromSupabase();
+        if (mounted) setRawState(remoteState);
+      } catch (error) {
+        console.error("Could not load CMMS data from Supabase. Falling back to seed data.", error);
+        if (mounted) setRawState(initialState);
+      }
+    }
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isSupabaseConfigured()) return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
+  const setState: Dispatch<SetStateAction<CmmsState>> = (value) => {
+    setRawState((current) => {
+      const next = apply(value, current);
+      if (isSupabaseConfigured() && next.pmScheduleSections !== current.pmScheduleSections) {
+        void persistPMSections(next.pmScheduleSections);
+      }
+      return next;
+    });
+  };
+
   const value = useMemo<AppDataContextValue>(() => {
-    const mutate = (fn: (current: CmmsState) => CmmsState) => setState((current) => fn(current));
+    const mutate = (fn: (current: CmmsState) => CmmsState, after?: (next: CmmsState, current: CmmsState) => void) =>
+      setRawState((current) => {
+        const next = fn(current);
+        after?.(next, current);
+        return next;
+      });
 
     return {
       state,
       setState,
-      updateCompany: (settings) => mutate((current) => ({ ...current, company: settings })),
+      updateCompany: (settings) => mutate((current) => ({ ...current, company: settings }), (next) => void persistCompany(next.company)),
       saveRole: (role) => {
-        const id = role.id ?? uid("role");
+        const id = role.id ?? makeId("role");
         mutate((current) => ({
           ...current,
           roles: role.id
             ? current.roles.map((item) => (item.id === role.id ? { ...item, ...role, id } : item))
             : [...current.roles, { id, name: role.name, description: role.description ?? "" }]
-        }));
+        }), (next) => {
+          const record = next.roles.find((item) => item.id === id);
+          if (record) void persistRole(record);
+        });
         return id;
       },
       removeRole: (id) =>
         mutate((current) => {
-          const fallbackRole = current.roles.find((role) => role.id !== id)?.id ?? uid("role");
+          const fallbackRole = current.roles.find((role) => role.id !== id)?.id ?? makeId("role");
           const roles = current.roles.filter((role) => role.id !== id);
           return {
             ...current,
             roles: roles.length ? roles : [{ id: fallbackRole, name: "Team Member" }],
             teamMembers: current.teamMembers.map((member) => (member.roleId === id ? { ...member, roleId: fallbackRole } : member))
           };
+        }, () => {
+          void deleteRow("roles", id);
         }),
       saveTeamMember: (member) =>
         mutate((current) => {
@@ -124,7 +188,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             employeeId = sequence;
           }
           const record: TeamMember = {
-            id: member.id ?? uid("member"),
+            id: member.id ?? makeId("member"),
             employeeId: employeeId ?? "",
             fullName: member.fullName,
             roleId: member.roleId,
@@ -137,6 +201,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             ...next,
             teamMembers: member.id ? next.teamMembers.map((item) => (item.id === member.id ? record : item)) : [...next.teamMembers, record]
           };
+        }, (next) => {
+          const record = next.teamMembers.find((item) => item.fullName === member.fullName && item.email === (member.email ?? ""));
+          const saved = record ?? next.teamMembers[next.teamMembers.length - 1];
+          if (saved) void persistTeamMember(saved);
+          void persistSequence("employee", next.sequences.employee ?? 0);
         }),
       removeTeamMember: (id) =>
         mutate((current) => ({
@@ -145,9 +214,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           workOrders: current.workOrders.map((wo) => ({ ...wo, assignedMemberIds: wo.assignedMemberIds.filter((memberId) => memberId !== id) })),
           pmSchedules: current.pmSchedules.map((pm) => (pm.assignedMemberId === id ? { ...pm, assignedMemberId: "" } : pm)),
           reports: current.reports.map((report) => (report.preparedByMemberId === id ? { ...report, preparedByMemberId: "" } : report))
-        })),
+        }), () => void deleteRow("team_members", id)),
       saveClient: (client) => {
-        const id = client.id ?? uid("client");
+        const id = client.id ?? makeId("client");
         mutate((current) => {
           let next = current;
           let generatedClientId = client.clientId;
@@ -170,19 +239,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             secondaryContactEmail: client.secondaryContactEmail ?? ""
           };
           return { ...next, clients: client.id ? next.clients.map((item) => (item.id === client.id ? record : item)) : [...next.clients, record] };
+        }, (next) => {
+          const record = next.clients.find((item) => item.id === id);
+          if (record) void persistClient(record);
+          void persistSequence("client", next.sequences.client ?? 0);
         });
         return id;
       },
-      saveIndustry: (name) => mutate((current) => ({ ...current, industries: Array.from(new Set([...current.industries, name])) })),
+      saveIndustry: (name) => mutate((current) => ({ ...current, industries: Array.from(new Set([...current.industries, name])) }), () => void persistIndustry(name)),
       removeClient: (id) =>
         mutate((current) => ({
           ...current,
           clients: current.clients.filter((client) => client.id !== id),
           projects: current.projects.filter((project) => project.clientId !== id),
           workOrders: current.workOrders.filter((wo) => wo.clientId !== id)
-        })),
+        }), () => void deleteRow("clients", id)),
       saveProject: (project) => {
-        const id = project.id ?? uid("project");
+        const id = project.id ?? makeId("project");
         mutate((current) => {
           const record: Project = {
             id,
@@ -194,6 +267,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             description: project.description ?? ""
           };
           return { ...current, projects: project.id ? current.projects.map((item) => (item.id === project.id ? record : item)) : [...current.projects, record] };
+        }, (next) => {
+          const record = next.projects.find((item) => item.id === id);
+          if (record) void persistProject(record);
         });
         return id;
       },
@@ -204,23 +280,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           sites: current.sites.filter((site) => site.projectId !== id),
           pmSchedules: current.pmSchedules.filter((pm) => pm.projectId !== id),
           workOrders: current.workOrders.filter((wo) => wo.projectId !== id)
-        })),
+        }), () => void deleteRow("projects", id)),
       saveSite: (site) =>
         mutate((current) => {
-          const record: SiteFacility = { id: site.id ?? uid("site"), name: site.name, projectId: site.projectId, city: site.city ?? "", zone: site.zone ?? "" };
+          const record: SiteFacility = { id: site.id ?? makeId("site"), name: site.name, projectId: site.projectId, city: site.city ?? "", zone: site.zone ?? "" };
           return { ...current, sites: site.id ? current.sites.map((item) => (item.id === site.id ? record : item)) : [...current.sites, record] };
+        }, (next) => {
+          const id = site.id ?? next.sites[next.sites.length - 1]?.id;
+          const record = next.sites.find((item) => item.id === id);
+          if (record) void persistSite(record);
         }),
       removeSite: (id) =>
-        mutate((current) => ({ ...current, sites: current.sites.filter((site) => site.id !== id), workOrders: current.workOrders.filter((wo) => wo.siteId !== id) })),
+        mutate((current) => ({ ...current, sites: current.sites.filter((site) => site.id !== id), workOrders: current.workOrders.filter((wo) => wo.siteId !== id) }), () => void deleteRow("sites", id)),
       saveAssetType: (name) => {
-        const id = uid("assetType");
-        mutate((current) => ({ ...current, assetTypes: [...current.assetTypes, { id, name }] }));
+        const id = makeId("assetType");
+        mutate((current) => ({ ...current, assetTypes: [...current.assetTypes, { id, name }] }), () => void persistNamed("asset_types", { id, name }));
         return id;
       },
       saveAsset: (asset) =>
         mutate((current) => {
           const record: Asset = {
-            id: asset.id ?? uid("asset"),
+            id: asset.id ?? makeId("asset"),
             assetName: asset.assetName,
             model: asset.model ?? "",
             serialNumber: asset.serialNumber ?? "",
@@ -231,6 +311,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             warrantyPeriodYears: asset.warrantyPeriodYears ?? 1
           };
           return { ...current, assets: asset.id ? current.assets.map((item) => (item.id === asset.id ? record : item)) : [...current.assets, record] };
+        }, (next) => {
+          const id = asset.id ?? next.assets[next.assets.length - 1]?.id;
+          const record = next.assets.find((item) => item.id === id);
+          if (record) void persistAsset(record);
         }),
       removeAsset: (id) =>
         mutate((current) => ({
@@ -238,34 +322,38 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           assets: current.assets.filter((asset) => asset.id !== id),
           pmSchedules: current.pmSchedules.filter((pm) => pm.assetId !== id),
           workOrders: current.workOrders.filter((wo) => wo.assetId !== id)
-        })),
+        }), () => void deleteRow("assets", id)),
       saveDomain: (name) => {
-        const id = uid("domain");
-        mutate((current) => ({ ...current, domains: [...current.domains, { id, name }] }));
+        const id = makeId("domain");
+        mutate((current) => ({ ...current, domains: [...current.domains, { id, name }] }), () => void persistNamed("solution_domains", { id, name }));
         return id;
       },
       saveActivityType: (name) => {
-        const id = uid("activity");
-        mutate((current) => ({ ...current, activityTypes: [...current.activityTypes, { id, name }] }));
+        const id = makeId("activity");
+        mutate((current) => ({ ...current, activityTypes: [...current.activityTypes, { id, name }] }), () => void persistNamed("activity_types", { id, name }));
         return id;
       },
-      saveTaskCategory: (name) => mutate((current) => ({ ...current, taskCategories: Array.from(new Set([...current.taskCategories, name])) })),
+      saveTaskCategory: (name) => mutate((current) => ({ ...current, taskCategories: Array.from(new Set([...current.taskCategories, name])) }), () => void persistNamed("task_categories", { id: makeId("category"), name })),
       saveTemplate: (template) =>
         mutate((current) => {
           const record: WorkOrderTemplate = {
-            id: template.id ?? uid("template"),
+            id: template.id ?? makeId("template"),
             name: template.name,
             domainId: template.domainId,
             activityTypeId: template.activityTypeId,
             description: template.description ?? "",
             scope: template.scope ?? "",
-            tasks: (template.tasks ?? []).map((task) => ({ ...task, id: task.id ?? uid("task") }))
+            tasks: (template.tasks ?? []).map((task) => ({ ...task, id: task.id ?? makeId("task") }))
           };
           return { ...current, templates: template.id ? current.templates.map((item) => (item.id === template.id ? record : item)) : [...current.templates, record] };
+        }, (next) => {
+          const id = template.id ?? next.templates[next.templates.length - 1]?.id;
+          const record = next.templates.find((item) => item.id === id);
+          if (record) void persistTemplate(record);
         }),
-      removeTemplate: (id) => mutate((current) => ({ ...current, templates: current.templates.filter((template) => template.id !== id) })),
+      removeTemplate: (id) => mutate((current) => ({ ...current, templates: current.templates.filter((template) => template.id !== id) }), () => void deleteRow("work_order_templates", id)),
       saveWorkOrder: (workOrder) => {
-        const id = workOrder.id ?? uid("wo");
+        const id = workOrder.id ?? makeId("wo");
         mutate((current) => {
           let next = current;
           let reference = workOrder.reference;
@@ -293,10 +381,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             assignedMemberIds: workOrder.assignedMemberIds ?? [],
             description: workOrder.description ?? "",
             scope: workOrder.scope ?? template?.scope ?? "",
-            tasks: workOrder.tasks?.length ? workOrder.tasks : cloneTasks(template?.tasks),
+            tasks: workOrder.tasks?.length ? workOrder.tasks.map((task) => ({ ...task, id: task.id ?? makeId("task") })) : cloneTasks(template?.tasks).map((task) => ({ ...task, id: makeId("task") })),
             createdAt: workOrder.createdAt ?? todayIso()
           };
           return { ...next, workOrders: workOrder.id ? next.workOrders.map((item) => (item.id === workOrder.id ? record : item)) : [...next.workOrders, record] };
+        }, (next) => {
+          const record = next.workOrders.find((item) => item.id === id);
+          if (record) void persistWorkOrder(record, next.sequences);
         });
         return id;
       },
@@ -304,20 +395,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         mutate((current) => ({
           ...current,
           workOrders: current.workOrders.map((workOrder) => (workOrder.id === id ? { ...workOrder, status } : workOrder))
-        })),
+        }), () => void persistWorkOrderStatus(id, status)),
       removeWorkOrder: (id) =>
         mutate((current) => ({
           ...current,
           workOrders: current.workOrders.filter((wo) => wo.id !== id),
           pmSchedules: current.pmSchedules.map((pm) => (pm.workOrderId === id ? { ...pm, workOrderId: undefined } : pm)),
           reports: current.reports.filter((report) => report.workOrderId !== id)
-        })),
+        }), () => void deleteRow("work_orders", id)),
       saveReport: (report) => {
         const workOrder = state.workOrders.find((wo) => wo.id === report.workOrderId);
         if (!workOrder) return null;
         const missingRequired = (report.tasks ?? workOrder.tasks).some((task) => task.required && (task.result === "Unchecked" || !task.result));
         if (missingRequired) return null;
-        const id = report.id ?? uid("report");
+        const id = report.id ?? makeId("report");
         mutate((current) => {
           let next = current;
           let reference = report.reference;
@@ -338,7 +429,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             actionsTaken: report.actionsTaken ?? "",
             recommendations: report.recommendations ?? "",
             systemStatus: report.systemStatus ?? "Optimal",
-            tasks: report.tasks ?? cloneTasks(workOrder.tasks),
+            tasks: report.tasks ?? cloneTasks(workOrder.tasks).map((task) => ({ ...task, id: makeId("task") })),
             parts: report.parts ?? [],
             clientRepresentative: report.clientRepresentative ?? "",
             companyRepresentative: report.companyRepresentative ?? current.company.companyName
@@ -348,14 +439,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             reports: report.id ? next.reports.map((item) => (item.id === report.id ? record : item)) : [...next.reports, record],
             workOrders: next.workOrders.map((wo) => (wo.id === report.workOrderId ? { ...wo, status: "Completed" } : wo))
           };
+        }, (next) => {
+          const record = next.reports.find((item) => item.id === id);
+          if (record) void persistReport(record, report.workOrderId, next.sequences);
         });
         return id;
       },
-      removeReport: (id) => mutate((current) => ({ ...current, reports: current.reports.filter((report) => report.id !== id) })),
+      removeReport: (id) => mutate((current) => ({ ...current, reports: current.reports.filter((report) => report.id !== id) }), () => void deleteRow("reports", id)),
       savePMSchedule: (schedule) =>
         mutate((current) => {
           const record: PMSchedule = {
-            id: schedule.id ?? uid("pm"),
+            id: schedule.id ?? makeId("pm"),
             title: schedule.title,
             projectId: schedule.projectId,
             assetId: schedule.assetId,
@@ -366,10 +460,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             workOrderId: schedule.workOrderId
           };
           return { ...current, pmSchedules: schedule.id ? current.pmSchedules.map((item) => (item.id === schedule.id ? record : item)) : [...current.pmSchedules, record] };
+        }, (next) => {
+          const id = schedule.id ?? next.pmSchedules[next.pmSchedules.length - 1]?.id;
+          const record = next.pmSchedules.find((item) => item.id === id);
+          if (record) void persistPMSchedule(record);
         }),
-      removePMSchedule: (id) => mutate((current) => ({ ...current, pmSchedules: current.pmSchedules.filter((pm) => pm.id !== id) }))
+      removePMSchedule: (id) => mutate((current) => ({ ...current, pmSchedules: current.pmSchedules.filter((pm) => pm.id !== id) }), () => void deleteRow("pm_schedules", id))
     };
-  }, [state]);
+  }, [state, setState]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 }

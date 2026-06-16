@@ -12,6 +12,8 @@ dist/
 # local env files
 .env
 .env*.local
+.env.example
+.env.local
 
 # logs
 npm-debug.log*

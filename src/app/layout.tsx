@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { AppDataProvider } from "@/lib/data/AppDataContext";
-import { AppHeader } from "@/components/layout/AppHeader";
-import { MainNav } from "@/components/layout/MainNav";
+import { AppShell } from "@/components/layout/AppShell";
+import { AuthProvider } from "@/lib/auth/AuthContext";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import "@/styles/globals.css";
 import "@/styles/print.css";
@@ -16,11 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <ToastProvider>
-          <AppDataProvider>
-            <AppHeader />
-            <MainNav />
-            {children}
-          </AppDataProvider>
+          <AuthProvider>
+            <AppShell>{children}</AppShell>
+          </AuthProvider>
         </ToastProvider>
       </body>
     </html>

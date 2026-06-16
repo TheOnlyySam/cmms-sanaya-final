@@ -1,4 +1,11 @@
+"use client";
+
+import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/lib/auth/AuthContext";
+
 export function AppHeader() {
+  const { profile, signOut } = useAuth();
+
   return (
     <header className="app-header">
       <div className="brand">
@@ -19,6 +26,15 @@ export function AppHeader() {
           </div>
           <div className="brand-tag">CMMS FIELD OPERATIONS</div>
         </div>
+      </div>
+      <div className="header-user">
+        <div>
+          <strong>{profile?.displayName ?? "Signed in"}</strong>
+          <span>{profile?.roleName ?? "CMMS User"}</span>
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => void signOut()}>
+          Sign Out
+        </Button>
       </div>
     </header>
   );

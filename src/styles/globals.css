@@ -89,6 +89,88 @@ a {
   letter-spacing: 1px;
 }
 
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+}
+
+.header-user div {
+  display: grid;
+  gap: 1px;
+  text-align: right;
+}
+
+.header-user strong {
+  font-size: 12px;
+}
+
+.header-user span {
+  color: #8fabc8;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.auth-loading,
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(10, 22, 40, 0.92), rgba(30, 58, 92, 0.86)),
+    radial-gradient(circle at 20% 20%, rgba(0, 200, 212, 0.28), transparent 34%),
+    var(--navy);
+}
+
+.auth-loading {
+  color: white;
+  text-align: center;
+}
+
+.auth-loading p {
+  max-width: 420px;
+  color: #c8ddef;
+}
+
+.login-panel {
+  width: min(430px, 100%);
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: white;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.login-brand .brand-name {
+  color: var(--navy);
+}
+
+.login-panel h1 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.login-panel > p {
+  margin: 7px 0 20px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.login-form {
+  display: grid;
+  gap: 14px;
+}
+
 .main-nav {
   position: sticky;
   top: 58px;

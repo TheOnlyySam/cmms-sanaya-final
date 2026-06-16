@@ -10,6 +10,8 @@ import { DataTable } from "@/components/ui/DataTable";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/FormField";
 import { Modal } from "@/components/ui/Modal";
 import { PageShell } from "@/components/layout/PageShell";
+import { canManageSettingsForMember, resolveCurrentMember, roleNameForMember } from "@/lib/access-control";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { useAppData } from "@/lib/data/AppDataContext";
 import { iraqiCities } from "@/lib/data/iraqiCities";
 import { sendTeamMemberInvitation } from "@/lib/invitations";
@@ -20,12 +22,34 @@ import { optionName, uid } from "@/lib/utils";
 type Panel = "dashboard" | "company" | "team" | "projects" | "sites" | "assets" | "templates";
 
 export default function SettingsPage() {
+  const { state } = useAppData();
+  const { profile } = useAuth();
   const [panel, setPanel] = useState<Panel>("dashboard");
+  const currentMember = resolveCurrentMember(state, profile?.teamMemberId);
+  const currentRole = profile?.roleName || roleNameForMember(state, currentMember);
+  const canAccessSettings = profile ? ["CMMS Admin", "Project Manager"].includes(profile.roleName) : canManageSettingsForMember(state, currentMember);
   const nav = [
     ["Core", [["dashboard", "Main Dashboard"], ["company", "Company"], ["team", "Team Members"]]],
     ["Field Data", [["projects", "Projects & Clients"], ["sites", "Sites & Facilities"], ["assets", "Equipment and Project Assets"]]],
     ["Work Orders", [["templates", "WO Templates"]]]
   ] as const;
+
+  if (!canAccessSettings) {
+    return (
+      <PageShell title="Settings" subtitle="Only Project Managers and CMMS Admins can manage system configuration.">
+        <Card>
+          <div className="empty-state">
+            <div className="empty-icon">!</div>
+            <strong>Settings access restricted</strong>
+            <p>
+              {currentMember?.fullName ?? "Current user"} is signed in as {currentRole || "a team member"}. Team members can use work orders,
+              reports, and PM schedules, but cannot see or edit Settings.
+            </p>
+          </div>
+        </Card>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell title="Settings" subtitle="Configure company, people, clients, projects, sites, assets, and reusable work order templates.">

@@ -1,0 +1,432 @@
+// SyncShield CMMS database model
+// Source of truth reviewed: src/lib/types/index.ts, src/lib/data/seed.ts,
+// src/lib/data/AppDataContext.tsx, Settings, Work Orders, Reports, and PM Schedule pages.
+
+Project syncshield_cmms {
+  database_type: "PostgreSQL"
+  Note: "Normalized schema for the current CMMS app state plus planned auth users and notifications."
+}
+
+Enum user_status {
+  invited
+  active
+  suspended
+  disabled
+}
+
+Enum work_order_kind {
+  CM
+  PM
+  Installation
+}
+
+Enum work_order_status {
+  Scheduled
+  In_Progress
+  On_Hold
+  Completed
+  Cancelled
+}
+
+Enum priority {
+  Critical
+  High
+  Medium
+  Low
+}
+
+Enum checklist_result {
+  Unchecked
+  OK
+  Warning
+  Fail
+  NA
+}
+
+Enum report_status {
+  Draft
+  Submitted
+  Approved
+}
+
+Enum system_status {
+  Optimal
+  Restricted
+  Offline
+}
+
+Enum pm_status {
+  Planned
+  Due
+  Completed
+  Overdue
+  Skipped
+}
+
+Enum pm_frequency {
+  Weekly
+  Monthly
+  Quarterly
+  Bi_Annual
+  Annual
+}
+
+Enum pm_cell_status {
+  empty
+  scheduled
+  completed
+  issue
+  skipped
+}
+
+Enum notification_type {
+  work_order_assigned
+  work_order_due
+  work_order_overdue
+  pm_due
+  report_submitted
+  report_approved
+  invitation_sent
+  system
+}
+
+Enum notification_priority {
+  info
+  warning
+  urgent
+}
+
+Table company_settings {
+  id varchar [pk, note: "Single active company/settings row"]
+  company_name varchar [not null]
+  company_type varchar
+  registration_number varchar
+  tax_number varchar
+  address text
+  phone varchar
+  email varchar
+  report_footer text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table roles {
+  id varchar [pk]
+  name varchar [not null, unique, note: "Examples: CMMS Admin, Project Manager, Engineer, Technician"]
+  description text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table users {
+  id varchar [pk, note: "Auth/user account id"]
+  role_id varchar [not null, ref: > roles.id]
+  team_member_id varchar [unique, ref: - team_members.id, note: "Optional link to employee/person profile"]
+  email varchar [not null, unique]
+  password_hash varchar
+  display_name varchar
+  status user_status [not null, default: "invited"]
+  last_login_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table team_members {
+  id varchar [pk]
+  employee_id varchar [not null, unique, note: "Auto-generated sequence like EMP-2026-0001"]
+  full_name varchar [not null]
+  role_id varchar [not null, ref: > roles.id]
+  department varchar [note: "Currently used like Project Manager / speciality"]
+  phone varchar
+  email varchar [not null]
+  active boolean [not null, default: true]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table industries {
+  id varchar [pk]
+  name varchar [not null, unique]
+}
+
+Table clients {
+  id varchar [pk]
+  client_code varchar [not null, unique, note: "App type name: clientId. Auto-generated like CL-2026-0001"]
+  name varchar [not null]
+  industry_id varchar [ref: > industries.id]
+  city varchar
+  primary_contact_name varchar
+  primary_contact_phone varchar
+  primary_contact_email varchar
+  secondary_contact_name varchar
+  secondary_contact_phone varchar
+  secondary_contact_email varchar
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table projects {
+  id varchar [pk]
+  client_id varchar [not null, ref: > clients.id]
+  name varchar [not null, note: "Project / Contract Name"]
+  contract_number varchar
+  start_date date
+  end_date date
+  description text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table sites {
+  id varchar [pk]
+  project_id varchar [not null, ref: > projects.id]
+  name varchar [not null, note: "Site / Facility name"]
+  city varchar
+  zone varchar
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table asset_types {
+  id varchar [pk]
+  name varchar [not null, unique]
+}
+
+Table assets {
+  id varchar [pk]
+  asset_type_id varchar [not null, ref: > asset_types.id]
+  asset_name varchar [not null]
+  model varchar
+  serial_number varchar
+  description text
+  manufacturer varchar
+  installation_date date [note: "Currently read-only in UI; intended to be populated by Installation work order/report"]
+  warranty_period_years int [not null, default: 1, note: "Allowed: 1, 2, 3, 4, 5"]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table solution_domains {
+  id varchar [pk]
+  name varchar [not null, unique, note: "Examples: Life Safety Systems"]
+}
+
+Table activity_types {
+  id varchar [pk]
+  name varchar [not null, unique, note: "Examples: Corrective Maintenance, Preventive Maintenance, Installation"]
+}
+
+Table task_categories {
+  id varchar [pk]
+  name varchar [not null, unique, note: "Examples: Inspection, Electrical, Functional Test, Documentation"]
+}
+
+Table work_order_templates {
+  id varchar [pk]
+  domain_id varchar [not null, ref: > solution_domains.id]
+  activity_type_id varchar [not null, ref: > activity_types.id]
+  name varchar [not null]
+  description text
+  scope text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table template_tasks {
+  id varchar [pk]
+  template_id varchar [not null, ref: > work_order_templates.id]
+  category_id varchar [ref: > task_categories.id]
+  description text [not null]
+  required boolean [not null, default: true]
+  sort_order int [not null, default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table work_orders {
+  id varchar [pk]
+  reference varchar [not null, unique, note: "Auto-generated sequence like WO-2026-0001"]
+  kind work_order_kind [not null]
+  title varchar [not null]
+  domain_id varchar [not null, ref: > solution_domains.id]
+  template_id varchar [not null, ref: > work_order_templates.id]
+  client_id varchar [not null, ref: > clients.id]
+  project_id varchar [not null, ref: > projects.id]
+  site_id varchar [ref: > sites.id]
+  asset_id varchar [ref: > assets.id]
+  priority priority [not null, default: "Medium"]
+  status work_order_status [not null, default: "Scheduled"]
+  due_date date [not null, note: "UI labels this Scheduled Date in print view"]
+  description text
+  scope text
+  created_by_user_id varchar [ref: > users.id]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table work_order_assignments {
+  id varchar [pk]
+  work_order_id varchar [not null, ref: > work_orders.id]
+  team_member_id varchar [not null, ref: > team_members.id]
+  assigned_by_user_id varchar [ref: > users.id]
+  assigned_at timestamp
+
+  Indexes {
+    (work_order_id, team_member_id) [unique]
+  }
+}
+
+Table work_order_tasks {
+  id varchar [pk]
+  work_order_id varchar [not null, ref: > work_orders.id]
+  template_task_id varchar [ref: > template_tasks.id]
+  category_id varchar [ref: > task_categories.id]
+  description text [not null]
+  required boolean [not null, default: true]
+  result checklist_result [not null, default: "Unchecked"]
+  sort_order int [not null, default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table reports {
+  id varchar [pk]
+  reference varchar [not null, unique, note: "Auto-generated CM/PM/Installation report sequence"]
+  type work_order_kind [not null, note: "Matches CM, PM, or Installation"]
+  work_order_id varchar [not null, ref: > work_orders.id]
+  status report_status [not null, default: "Submitted"]
+  report_date date [not null]
+  prepared_by_member_id varchar [ref: > team_members.id]
+  findings text
+  actions_taken text
+  recommendations text
+  system_status system_status [not null, default: "Optimal"]
+  client_representative varchar
+  company_representative varchar
+  installed_asset_id varchar [ref: > assets.id, note: "Only used for Installation reports"]
+  submitted_at timestamp
+  approved_by_user_id varchar [ref: > users.id]
+  approved_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table report_tasks {
+  id varchar [pk]
+  report_id varchar [not null, ref: > reports.id]
+  work_order_task_id varchar [ref: > work_order_tasks.id]
+  category_id varchar [ref: > task_categories.id]
+  description text [not null]
+  required boolean [not null, default: true]
+  result checklist_result [not null, default: "Unchecked"]
+  sort_order int [not null, default: 0]
+}
+
+Table report_parts {
+  id varchar [pk]
+  report_id varchar [not null, ref: > reports.id]
+  name varchar [not null]
+  quantity int [not null, default: 1]
+  remarks text
+}
+
+Table pm_schedules {
+  id varchar [pk]
+  title varchar [not null]
+  project_id varchar [not null, ref: > projects.id]
+  asset_id varchar [not null, ref: > assets.id]
+  frequency pm_frequency [not null, default: "Quarterly"]
+  next_due_date date [not null]
+  status pm_status [not null, default: "Planned"]
+  assigned_member_id varchar [ref: > team_members.id]
+  work_order_id varchar [ref: > work_orders.id]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table pm_schedule_sections {
+  id varchar [pk]
+  client_id varchar [not null, ref: > clients.id]
+  project_id varchar [not null, ref: > projects.id]
+  title varchar [not null]
+  sort_order int [not null, default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table pm_schedule_tasks {
+  id varchar [pk]
+  section_id varchar [not null, ref: > pm_schedule_sections.id]
+  asset_id varchar [ref: > assets.id]
+  assigned_member_id varchar [ref: > team_members.id]
+  name text [not null]
+  frequency pm_frequency [not null]
+  sort_order int [not null, default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table pm_schedule_cells {
+  id varchar [pk]
+  task_id varchar [not null, ref: > pm_schedule_tasks.id]
+  cell_year int [not null]
+  cell_month int [not null, note: "1-12"]
+  status pm_cell_status [not null, default: "empty"]
+  note text
+  work_order_id varchar [ref: > work_orders.id]
+  report_id varchar [ref: > reports.id]
+  updated_by_user_id varchar [ref: > users.id]
+  updated_at timestamp
+
+  Indexes {
+    (task_id, cell_year, cell_month) [unique]
+  }
+}
+
+Table notifications {
+  id varchar [pk]
+  recipient_user_id varchar [ref: > users.id]
+  recipient_member_id varchar [ref: > team_members.id]
+  type notification_type [not null]
+  priority notification_priority [not null, default: "info"]
+  title varchar [not null]
+  message text
+  work_order_id varchar [ref: > work_orders.id]
+  report_id varchar [ref: > reports.id]
+  pm_schedule_id varchar [ref: > pm_schedules.id]
+  read_at timestamp
+  created_at timestamp
+}
+
+Table invitations {
+  id varchar [pk]
+  email varchar [not null]
+  team_member_id varchar [ref: > team_members.id]
+  role_id varchar [ref: > roles.id]
+  invited_by_user_id varchar [ref: > users.id]
+  token_hash varchar
+  status varchar [not null, default: "sent"]
+  sent_at timestamp
+  accepted_at timestamp
+  expires_at timestamp
+}
+
+Table app_sequences {
+  id varchar [pk]
+  sequence_key varchar [not null, unique, note: "employee, client, workOrder, report"]
+  prefix varchar [not null]
+  current_value int [not null, default: 0]
+  year int
+  updated_at timestamp
+}
+
+Table audit_events {
+  id varchar [pk]
+  actor_user_id varchar [ref: > users.id]
+  entity_type varchar [not null]
+  entity_id varchar [not null]
+  action varchar [not null]
+  before_json json
+  after_json json
+  created_at timestamp
+}
