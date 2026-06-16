@@ -23,8 +23,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!loading && !session && !isPublic) router.replace("/login");
     if (!loading && session && isLogin) router.replace(profile?.roleName === "CMMS Admin" ? "/admin" : "/dashboard");
     if (!loading && session && profile && isAdminRoute && profile.roleName !== "CMMS Admin") router.replace("/dashboard");
-    if (!loading && session && profile && isSettingsRoute && profile.roleName !== "Project Manager") {
-      router.replace(profile.roleName === "CMMS Admin" ? "/admin" : "/dashboard");
+    if (!loading && session && profile && isSettingsRoute && !["CMMS Admin", "Project Manager"].includes(profile.roleName)) {
+      router.replace("/dashboard");
     }
   }, [isAdminRoute, isLogin, isPublic, isSettingsRoute, loading, profile, router, session]);
 

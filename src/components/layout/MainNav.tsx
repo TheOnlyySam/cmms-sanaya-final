@@ -21,7 +21,7 @@ export function MainNav() {
   const { state } = useAppData();
   const { profile } = useAuth();
   const currentMember = resolveCurrentMember(state, profile?.teamMemberId);
-  const canSeeSettings = profile ? profile.roleName === "Project Manager" : canManageSettingsForMember(state, currentMember);
+  const canSeeSettings = profile ? ["CMMS Admin", "Project Manager"].includes(profile.roleName) : canManageSettingsForMember(state, currentMember);
   const visibleItems = items.filter((item) => {
     if (item.href === "/settings") return canSeeSettings;
     if (item.href === "/admin") return profile?.roleName === "CMMS Admin";
