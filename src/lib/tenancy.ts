@@ -1,4 +1,5 @@
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+const PLATFORM_HOSTS = new Set(["vercel.app"]);
 
 export function slugifyCompanyName(name: string) {
   return name
@@ -24,6 +25,7 @@ export function getTenantSubdomain(hostname: string) {
   if (LOCAL_HOSTS.has(host)) return null;
 
   const parts = host.split(".");
+  if (PLATFORM_HOSTS.has(parts.slice(-2).join("."))) return null;
   if (parts.length <= 2) return null;
   const firstPart = parts[0];
   return firstPart === "www" ? null : firstPart;
@@ -33,4 +35,3 @@ export function getCurrentTenantSubdomain() {
   if (typeof window === "undefined") return null;
   return getTenantSubdomain(window.location.hostname);
 }
-
